@@ -8,6 +8,9 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+
+import org.jgrapht.alg.util.Pair;
+
 import it.polito.tdp.itunes.model.Album;
 import it.polito.tdp.itunes.model.Artist;
 import it.polito.tdp.itunes.model.Genre;
@@ -138,5 +141,63 @@ public class ItunesDAO {
 			throw new RuntimeException("SQL Error");
 		}
 		return result;
+	}
+	
+	
+	public List<Album> getAllAlbumsWithDuration(Double duration){
+		
+		final String sql = "SELECT a.*, SUM(t.milliseconds) as duration "
+				+ "FROM album a, track t "
+				+ "WHERE a.`AlbumId`= t.`AlbumId` "
+				+ "GROUP BY a.`AlbumId` "
+				+ "HAVING duration >= ? ";
+		
+		List<Album> result = new LinkedList<>();
+		
+		try {
+			Connection conn = DBConnect.getConnection();
+			PreparedStatement st = conn.prepareStatement(sql);
+			st.setInt(1, (int) (duration*60*1000));
+			ResultSet res = st.executeQuery();
+
+			while (res.next()) {
+				result.add(new Album(res.getInt("AlbumId"), res.getString("Title"), res.getDouble("duration")/60/1000));
+			}
+			conn.close();
+		} catch (SQLException e) {
+			e.printStackTrace();
+			throw new RuntimeException("SQL Error");
+		}
+		return result;
+	}
+	
+	public List<Pair<Integer,Integer>> getCompatibleAlbums(){
+		String sql = "SELECT DISTINCTROW a1.`AlbumId` AS id1, a2.`AlbumId` AS id2 "
+				+ "FROM album a1, album a2, track t1, track t2, "
+				+ "playlisttrack pt1, playlisttrack pt2 "
+				+ "WHERE a1.`AlbumId`=t1.`AlbumId` "
+				+ "AND pt1.trackId = t1.`TrackId` "
+				+ "AND a2.`AlbumId`=t2.`AlbumId` "
+				+ "AND pt2.trackId = t2.trackId "
+				+ "AND pt1.playlistId = pt2.`PlaylistId` ";
+		
+		List<Pair<Integer, Integer>> result = new ArrayList<>();
+		
+		try {
+			Connection conn = DBConnect.getConnection();
+			PreparedStatement st = conn.prepareStatement(sql);
+			ResultSet res = st.executeQuery();
+
+			while (res.next()) {
+				result.add(new Pair<Integer, Integer> (res.getInt("id1"),
+						res.getInt("id2")));
+			}
+			conn.close();
+			return result;
+			
+		} catch (SQLException e) {
+			e.printStackTrace();
+			throw new RuntimeException("SQL Error");
+		}
 	}
 }
